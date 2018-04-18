@@ -157,6 +157,22 @@ function setupHTTP() {
   }));
   app.use(bodyParser.json());
 
+  app.get('/', function(req, res) {
+    let result = {
+      CLOUDMQTT_URL: config.CLOUDMQTT_URL,
+      CLIENT_ID: config.CLIENT_ID,
+      routes: [
+        "/status",
+        "/clients/",
+        "/clients/:id",
+      ],
+      topics: [
+        '/+/join',
+        `/${config.CLIENT_ID}/nudge`,
+      ]
+    };
+    res.send(result);
+  });
   app.get('/status', api.status.getStatus);
   app.get('/clients', api.clients.getClients);
   app.get('/clients/:id', api.clients.getClient);

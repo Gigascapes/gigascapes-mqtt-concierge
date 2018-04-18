@@ -142,7 +142,7 @@ function setupMQTT() {
 function setupHTTP() {
   app = express();
   let appConfig = {
-    port: config.HTTP_PORT || 3000
+    port: config.HTTP_PORT
   };
 
   app.recentClients = recentClients;

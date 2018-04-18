@@ -1,0 +1,4 @@
+node_modules
+npm-debug.log
+heroku.tar.gz
+.env

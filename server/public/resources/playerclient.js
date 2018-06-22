@@ -9,7 +9,16 @@ class PlayerClient extends EventedMixin(Noop) {
   constructor(options={}) {
     super();
     this.pairId = null;
-    this.connectOptions = Object.assign({}, options.connectOptions);
+    this.connectOptions = Object.assign({
+      cleanSession: true,
+      onSuccess: resp => {
+        console.log("success connecting");
+        this.onConnect();
+      },
+      onFailure: resp => {
+        console.warn(`failed to connect: ${resp.errorCode} - ${resp.errorMessage}`);
+      },
+    }, options.connectOptions);
     this.options = Object.assign({}, options);
     this.topicPrefix = "gigascapes";
     delete this.options.connectOptions;
@@ -52,16 +61,7 @@ class PlayerClient extends EventedMixin(Noop) {
     mqttClient.onConnectionLost = this.onDisconnect.bind(this);
 
     // connect the client
-    mqttClient.connect({
-      cleanSession: true,
-      onSuccess: resp => {
-        console.log("success connecting");
-        this.onConnect();
-      },
-      onFailure: resp => {
-        console.warn(`failed to connect: ${resp.errorCode} - ${resp.errorMessage}`);
-      },
-    });
+    mqttClient.connect(this.connectOptions);
 
     mqttClient.onMessageArrived = (message) => {
       this.options.VERBOSE && console.log("got message: ",

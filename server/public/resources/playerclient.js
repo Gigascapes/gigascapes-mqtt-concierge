@@ -17,6 +17,7 @@ class PlayerClient extends EventedMixin(Noop) {
       },
       onFailure: resp => {
         console.warn(`failed to connect: ${resp.errorCode} - ${resp.errorMessage}`);
+        console.log(resp);
       },
     }, options.connectOptions);
     this.options = Object.assign({}, options);
@@ -26,8 +27,7 @@ class PlayerClient extends EventedMixin(Noop) {
     this._messageTimer;
     this.messageThrottleMs = 1000/10;
   }
-  init() {
-    console.log("init: connecting to mqtt broker at: ", this.connectOptions);
+  init(connectOptions={}) {
     // Create a client instance
     // docs: http://www.eclipse.org/paho/files/jsdoc/Paho.MQTT.Client.html
     var mqttClient = new Paho.MQTT.Client(
@@ -36,24 +36,25 @@ class PlayerClient extends EventedMixin(Noop) {
       this.connectOptions.clientId
     );
     this.mqttClient = mqttClient;
-    // this.mqttClient = mqtt.connect(this.options.CLOUDMQTT_URL, connectOptions);
-    // let mqttClient = this.mqttClient
 
     // set callback handlers
     mqttClient.onConnectionLost = this.onDisconnect.bind(this);
 
-    // connect the client
-    let connectOptions = {};
+    // resolve the connect options
+    // - from our server-generated config, and from the options passed in from the caller
+    let configOptions = Object.assign({}, this.connectOptions, connectOptions);
+    let mqttClientConnectOptions = {};
     let validProperties = [
       "timeout", "userName", "password", "willMessage", "keepAliveInterval",
       "cleanSession", "useSSL", "invocationContext", "onSuccess", "onFailure",
       "hosts", "ports", "mqttVersion"];
     for (let name of validProperties) {
-      if (name in this.connectOptions) {
-        connectOptions[name] = this.connectOptions[name];
+      if (name in configOptions) {
+        mqttClientConnectOptions[name] = this.connectOptions[name];
       }
     }
-    mqttClient.connect(connectOptions);
+    console.log("init: connecting to mqtt broker with options: ", mqttClientConnectOptions);
+    mqttClient.connect(mqttClientConnectOptions);
 
     mqttClient.onMessageArrived = (message) => {
       this.options.VERBOSE && console.log("got message: ",

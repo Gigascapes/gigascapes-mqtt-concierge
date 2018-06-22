@@ -2,10 +2,12 @@
 var config = require('./config');
 var express = require('express');
 var bodyParser = require('body-parser');
+var path = require('path');
 
 var mqtt = require('mqtt');
 var mqttClient;
 var app;
+const topicPrefix = '/gs/';
 
 var status = {
   _data: {
@@ -62,7 +64,7 @@ function setupMQTT() {
     status.update('connected');
     // listen for other clients that want to join
     // TODO: define what join means vs. just connecting?
-    mqttClient.subscribe('/+/join');
+    mqttClient.subscribe(`${topicPrefix}/join`);
 
     // this isn't a request/response model, but another client may "nudge" us
     // by publishing on the /concierge/nudge/ topic, causing us to
@@ -92,33 +94,27 @@ function setupMQTT() {
 
   mqttClient.on('message', function (_topic, message) {
     status.update('receiving');
-    let [clientId, ...parts] = _topic.split('/').filter(part => !!part);
+    let [prefix, ...parts] = _topic.split('/').filter(part => !!part);
+    if (prefix.startsWith('/')) {
+      // strip off a leading '/'
+      prefix = prefix.substring(1);
+    }
     let topic = parts.join('/');
     // message is Buffer
-    console.log(`got a message from ${clientId}, on topic: ${topic}`,
+    console.log(`got a message at prefix ${prefix}, on topic: ${topic}`,
                 message.toString());
 
-    if (!clientId) {
-      console.log(`No clientId matched in topic: ${_topic}`);
-      return;
-    }
-    if (clientId == '$SYS') {
+    if (prefix == '$SYS') {
       // system messages from the broker
       console.log(`System message: ${topic}: ${message.toString()}`);
       return;
     }
-    if (clientId == config.CLIENT_ID || clientId == 'all') {
-      topic = parts.join('/');
+    if (prefix == config.CLIENT_ID || prefix == topicPrefix.substring(1)) {
       switch (topic) {
         case `nudge`:
           sendMessage('status', status.get());
           sendMessage('recent', recentClients.get());
           break;
-      }
-      return;
-    }
-
-    switch (topic) {
       case 'join':
         // every client could always publish on clientId-prefixed topics
         // and we could use wildcard: subscribe('/+/join', ....)
@@ -129,11 +125,15 @@ function setupMQTT() {
         recentClients.remove(clientId);
         sendMessage('recent', recentClients.get());
         break;
+
+      }
+      return;
     }
+
   });
 
   function sendMessage(name, messageData) {
-    let topic = `/${config.CLIENT_ID}/${name}`;
+    let topic = `/${topicPrefix}/${name}`;
     let message = JSON.stringify(messageData);
     mqttClient.publish(topic, message);
   }
@@ -149,7 +149,8 @@ function setupHTTP() {
 
   var api = {
     status: require('./api/status')(status),
-    clients: require('./api/clients')(recentClients)
+    clients: require('./api/clients')(recentClients),
+    config: require('./api/browser-config')(config),
   };
 
   app.use(bodyParser.urlencoded({
@@ -176,7 +177,8 @@ function setupHTTP() {
   app.get('/status', api.status.getStatus);
   app.get('/clients', api.clients.getClients);
   app.get('/clients/:id', api.clients.getClient);
-  // app.put('/user/clients/:id', api.clients.updateClient);
+  app.get('/mqtt-config.js', api.config.getConfigAsJs);
+  app.use(express.static(path.join(__dirname, './public')));
 
   app.listen(appConfig.port, function () {
     console.log('Status app listening on port ' + appConfig.port + '!');

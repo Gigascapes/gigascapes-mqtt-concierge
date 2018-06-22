@@ -7,14 +7,21 @@
       html, body {
         height: 100%;
         width: 100%;
-        padding: 0;
         margin: 0;
-        overflow: hidden;
       }
-      canvas {
+      body {
+        padding: 0;
+        overflow: hidden;
+        background-color: #aaa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      body > canvas {
         border: 1px dashed #999;
-        width: 100vmin;
-        height: 100vmin;
+        width: calc(100vmin - 10px);
+        height: calc(100vmin - 10px);
+        background-color: #fff;
       }
       body.electronA {
         background-color: #000;
@@ -29,7 +36,7 @@
       h1 {
         margin: 0;
         font-family: sans-serif;
-        font-size: 10px;
+        font-size: 16px;
         color: #fff;
         background-color: #999;
         position: absolute;

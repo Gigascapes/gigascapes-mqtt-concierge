@@ -98,7 +98,7 @@ class TouchInput extends EventedMixin(GenericInput) {
       case "touchcancel":
         event.preventDefault();
         for (let touch of event.changedTouches) {
-          let idx = this._touches.findIndex(t => t.identifier == touch.identifier);
+          let idx = this._touches.findIndex(t => t.id == touch.identifier);
           if (idx >= 0) {
             this._touches.splice(idx, 1);
           }

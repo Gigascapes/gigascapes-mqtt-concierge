@@ -85,11 +85,11 @@ class DisplayOutput {
     let positions = this.positions.filter(dot => {
       return (dot.created && now - dot.created < decayTime);
     });
+    this.positions.splice(0, this.positions.length, ...positions);
     for (let dot of positions) {
       dot.opacity = 1 - Math.max(0.01, (now - dot.created)/decayTime);
       this._drawDot(dot);
     }
-    this.positions = positions;
     requestAnimationFrame(() => this.tick());
   }
   pause() {

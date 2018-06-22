@@ -130,22 +130,38 @@ class MouseInput extends EventedMixin(GenericInput) {
   }
   start() {
     console.log("MouseInput.start, watching mousemove");
-    this.options.node.addEventListener("mousemove", this);
+    let target = this.options.node;
+    target.addEventListener("mousedown", this);
+    target.addEventListener("mouseup", this);
+    target.addEventListener("mousemove", this);
     this.updateSize();
   }
   pause() {
     console.log("MouseInput.pause, unwatching mousemove");
-    this.options.node.removeEventListener("mousemove", this);
+    let target = this.options.node;
+    target.removeEventListener("mousedown", this);
+    target.removeEventListener("mouseup", this);
+    target.removeEventListener("mousemove", this);
   }
   handleEvent(event) {
     super.handleEvent(event);
-    if (event.type == "mousemove") {
-      let point = {};
-      this.preparePointFromEvent(event, point);
-      let evt = {
-        data: [point]
-      };
-      this.emit("mousemove", evt);
+    switch (event.type) {
+      case "mousedown":
+        this._mousedown = true;
+        break;
+      case "mouseup":
+        this._mousedown = false;
+        break;
+      case "mousemove":
+        if (this._mousedown) {
+          let point = {};
+          this.preparePointFromEvent(event, point);
+          let evt = {
+            data: [point]
+          };
+          this.emit("mousemove", evt);
+        }
+        break;
     }
   }
 };

@@ -23,20 +23,30 @@
         height: calc(100vmin - 10px);
         background-color: #fff;
       }
-      body.electronA {
+      .infoBox {
+        position: absolute;
         background-color: #000;
         color: #fff;
-        padding: 5px;
+        padding: 2px 4px;
+        width: 3rem;
+        height: 1.4rem;
+        opacity: 0.7;
       }
-      body.electronB {
-        background-color: #eee;
-        color: #000;
-        padding: 0 5px 0;
+      #localInfo {
+        top: 2px;
+        left: 2px;
+        background-color: red;
+      }
+      #remoteInfo {
+        top: 2px;
+        left: calc(12px + 3rem);
+        background-color: green;
       }
       h1 {
         margin: 0;
+        padding: 0 4px;
         font-family: sans-serif;
-        font-size: 16px;
+        font-size: 1.4rem;
         color: #fff;
         background-color: #999;
         position: absolute;
@@ -50,6 +60,8 @@
   <body>
     <h1>Client</h1>
     <canvas width="500" height="500"></canvas>
+    <div class="infoBox" id="remoteInfo">0</div>
+    <div class="infoBox" id="localInfo">0</div>
 
     <script src="./resources/mqttws31.js" type="text/javascript"></script>
     <script type="module">
@@ -70,12 +82,14 @@
         node: document.querySelector('canvas'),
       });
 
+      let lastSent, lastReceived;
       player.init();
       player.on("received", ({topic, data, clientId}) => {
         if (!topic.endsWith("positions")) {
           return;
         }
-        console.log(`received: ${topic}`, clientId, data);
+        lastReceived = Date.now();
+        config.VERBOSE && console.log(`received: ${topic}`, clientId, data);
         let positions = JSON.parse(data);
         if (!Array.isArray(positions)) {
           positions = [positions];
@@ -83,11 +97,18 @@
         for (let posn of positions) {
           display.drawDot(posn, 'red');
         }
+        document.querySelector("#remoteInfo").textContent = positions.length;
+        setTimeout(() => {
+          if (Date.now() - lastSent >= 1000) {
+            document.querySelector("#remoteInfo").textContent = 0;
+          }
+        }, 1000);
       });
       player.on("sent", ({topic, data}) => {
         if (!topic.endsWith("positions")) {
           return;
         }
+        lastSent = Date.now();
         config.VERBOSE && console.log(`sent: ${topic}`, data);
         let positions = JSON.parse(data);
         if (!Array.isArray(positions)) {
@@ -96,6 +117,12 @@
         for (let posn of positions) {
           display.drawDot(posn, 'green');
         }
+        document.querySelector("#localInfo").textContent = positions.length;
+        setTimeout(() => {
+          if (Date.now() - lastSent >= 1000) {
+            document.querySelector("#localInfo").textContent = 0;
+          }
+        }, 1000);
       });
 
       const monitorMousemove = new MouseInput({

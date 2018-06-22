@@ -28,24 +28,6 @@ class PlayerClient extends EventedMixin(Noop) {
   }
   init() {
     console.log("init: connecting to mqtt broker at: ", this.connectOptions);
-    // const connectOptions = {
-    //   clientId: this.options.CLIENT_ID,
-    //   username: this.options.USERNAME,
-    //   password: this.options.PASSWORD,
-    //   reconnectPeriod: 10*1000
-    // };
-
-    // create the mqtt client using the url + options (auth details, etc.)
-    // TODO: if we fail to connect due to an auth error, currently this will
-    // keep trying again and again which is a bit daft.
-
-
-    // Parameters
-    // let hostname = this.options.mqttHostname || "127.0.0.1"; // better if its a full uri
-    // let clientId = this.options.mqttClientId || "ws" + Math.random();
-    // let port = this.options.mqttPort || 1884;
-    let path = '';
-
     // Create a client instance
     // docs: http://www.eclipse.org/paho/files/jsdoc/Paho.MQTT.Client.html
     var mqttClient = new Paho.MQTT.Client(
@@ -61,7 +43,17 @@ class PlayerClient extends EventedMixin(Noop) {
     mqttClient.onConnectionLost = this.onDisconnect.bind(this);
 
     // connect the client
-    mqttClient.connect(this.connectOptions);
+    let connectOptions = {};
+    let validProperties = [
+      "timeout", "userName", "password", "willMessage", "keepAliveInterval",
+      "cleanSession", "useSSL", "invocationContext", "onSuccess", "onFailure",
+      "hosts", "ports", "mqttVersion"];
+    for (let name of validProperties) {
+      if (name in this.connectOptions) {
+        connectOptions[name] = this.connectOptions[name];
+      }
+    }
+    mqttClient.connect(connectOptions);
 
     mqttClient.onMessageArrived = (message) => {
       this.options.VERBOSE && console.log("got message: ",

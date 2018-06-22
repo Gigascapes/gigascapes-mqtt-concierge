@@ -22,7 +22,7 @@ let config = {
     useSSL: ${useSSL},
     port: "${wsPort}",
     clientId: "browser-" + Math.random().toString(16).substr(2, 8),
-    user: "browser-ws",
+    userName: "browser-ws",
     password: "${password}",
   },
 }

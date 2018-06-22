@@ -3,7 +3,9 @@ import cssColors from './cssColors.js';
 class DisplayOutput {
   constructor(options={}) {
     this.positions = null;
-    this.options = options;
+    this.options = Object.assign({
+      decayMS: 2000,
+    }, options);
     console.assert(this.options.node, "DisplayOutput needs an options.node for output");
   }
   start() {
@@ -48,6 +50,7 @@ class DisplayOutput {
     ctx.fill();
   }
   drawDot(coord, color = [0,0,0]) {
+    let now = Date.now();
     if (!this.running) {
       this.start();
     }
@@ -63,9 +66,10 @@ class DisplayOutput {
     let posn = {
       x: coord.x * this.canvas.width,
       y: coord.y * this.canvas.height,
-      color
+      color,
+      created: now,
     }
-    this.positions.unshift(posn);
+    this.positions.push(posn);
     this._nextDotTimer = setTimeout(() => {
       this.pause();
     }, 300);
@@ -75,15 +79,17 @@ class DisplayOutput {
       return;
     }
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    let count = this.positions.length;
-    if (count > 32) {
-      count = this.positions.length = 32;
-    }
-    for (let i = count - 1; i >= 0; i--) {
-      let dot = this.positions[i];
-      dot.opacity = 1/(i+1);
+
+    let now = Date.now();
+    let decayTime = this.options.decayMS;
+    let positions = this.positions.filter(dot => {
+      return (dot.created && now - dot.created < decayTime);
+    });
+    for (let dot of positions) {
+      dot.opacity = 1 - Math.max(0.01, (now - dot.created)/decayTime);
       this._drawDot(dot);
     }
+    this.positions = positions;
     requestAnimationFrame(() => this.tick());
   }
   pause() {

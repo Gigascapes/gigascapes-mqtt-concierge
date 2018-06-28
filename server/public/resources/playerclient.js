@@ -3,6 +3,8 @@ if (typeof Paho == undefined) {
 }
 console.log("Paho:", Paho);
 
+const UTC_OFFSET_MS = (new Date()).getTimezoneOffset() * 1000 * 60;
+
 import EventedMixin from './eventedmixin.js';
 class Noop {};
 class PlayerClient extends EventedMixin(Noop) {
@@ -117,11 +119,15 @@ class PlayerClient extends EventedMixin(Noop) {
     this._messageQueue.push([topic, messageData]);
   }
 
-  sendMessage(topic, messageData) {
+  sendMessage(topic, payload) {
     if (typeof topic == "object") {
       topic = `${topic.prefix}/${this.clientId}/${topic.name}`;
     }
-    let payload = typeof messageData == "string" ? messageData : JSON.stringify(messageData);
+    if (typeof payload != "string") {
+      // add a UTC timestamp to help track end-end latency
+      payload.utcTimestamp = Date.now() + UTC_OFFSET_MS;
+      payload = JSON.stringify(payload)
+    }
     let message = new Paho.MQTT.Message(payload);
     message.destinationName = topic;
     let sendError;
@@ -136,9 +142,23 @@ class PlayerClient extends EventedMixin(Noop) {
     }
   }
 
-  broadcastPositions(data) {
+  parseMessage(messageData) {
+    let data = JSON.parse(messageData);
+    if (!Array.isArray(data.positions)) {
+      data.positions = [data.positions];
+    }
+    if (data.utcTimestamp) {
+      let now = Date.now() + UTC_OFFSET_MS;
+      data.latencyMs = now - data.utcTimestamp;
+    }
+    return data;
+  }
+
+  broadcastPositions(positions) {
     let topic = `${this.topicPrefix}/${this.clientId}/positions`;
-    this.enqueueMessage(topic, data);
+    this.enqueueMessage(topic, {
+      positions
+    });
   }
 };
 

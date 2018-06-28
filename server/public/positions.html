@@ -31,6 +31,7 @@
         width: 3rem;
         height: 1.4rem;
         opacity: 0.7;
+        font-size: 1rem;
       }
       #localInfo {
         top: 2px;
@@ -41,6 +42,12 @@
         top: 2px;
         left: calc(12px + 3rem);
         background-color: red;
+      }
+      #latency {
+        top: 2px;
+        left: calc(24px + 6rem);
+        width: 6rem;
+        background-color: #333;
       }
       h1 {
         margin: 0;
@@ -62,6 +69,7 @@
     <canvas width="500" height="500"></canvas>
     <div class="infoBox" id="remoteInfo">0</div>
     <div class="infoBox" id="localInfo">0</div>
+    <div class="infoBox" id="latency">-</div>
 
     <script src="./resources/mqttws31.js" type="text/javascript"></script>
     <script type="module">
@@ -88,21 +96,22 @@
         if (!topic.endsWith("positions")) {
           return;
         }
-        lastReceived = Date.now();
-        config.VERBOSE && console.log(`received: ${topic}`, clientId, data);
-        let positions = JSON.parse(data);
-        if (!Array.isArray(positions)) {
-          positions = [positions];
+        const now = Date.now();
+        lastReceived = now;
+        const {positions, latencyMs} = player.parseMessage(data);
+        config.VERBOSE && console.log(`received: ${topic}`, clientId, data, latencyMs);
+        if (latencyMs !== undefined) {
+          document.querySelector("#latency").textContent = `${latencyMs}ms`;
         }
         for (let posn of positions) {
           display.drawDot(posn, 'red');
         }
         document.querySelector("#remoteInfo").textContent = positions.length;
         setTimeout(() => {
-          if (Date.now() - lastSent >= 1000) {
+          if (Date.now() - lastSent >= 1500) {
             document.querySelector("#remoteInfo").textContent = 0;
           }
-        }, 1000);
+        }, 1500);
       });
       player.on("sent", ({topic, data}) => {
         if (!topic.endsWith("positions")) {
@@ -110,10 +119,8 @@
         }
         lastSent = Date.now();
         config.VERBOSE && console.log(`sent: ${topic}`, data);
-        let positions = JSON.parse(data);
-        if (!Array.isArray(positions)) {
-          positions = [positions];
-        }
+
+        const {positions} = player.parseMessage(data);
         for (let posn of positions) {
           display.drawDot(posn, 'green');
         }

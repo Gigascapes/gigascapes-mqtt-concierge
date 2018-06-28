@@ -115,7 +115,7 @@ class TouchInput extends EventedMixin(GenericInput) {
           }
         }
         let evt = {
-          data: JSON.stringify(this._touches)
+          data: this._touches.slice(),
         };
         this.emit("touchmove", evt);
         break;

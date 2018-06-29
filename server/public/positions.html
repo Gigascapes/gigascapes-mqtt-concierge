@@ -48,6 +48,7 @@
         left: calc(24px + 6rem);
         width: 6rem;
         background-color: #333;
+        display: none;
       }
       h1 {
         margin: 0;
@@ -98,11 +99,9 @@
         }
         const now = Date.now();
         lastReceived = now;
-        const {positions, latencyMs} = player.parseMessage(data);
+        const {positions} = player.parseMessage(data);
         config.VERBOSE && console.log(`received: ${topic}`, clientId, data, latencyMs);
-        if (latencyMs !== undefined) {
-          document.querySelector("#latency").textContent = `${latencyMs}ms`;
-        }
+
         for (let posn of positions) {
           display.drawDot(posn, 'red');
         }

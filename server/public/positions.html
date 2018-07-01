@@ -100,7 +100,7 @@
         const now = Date.now();
         lastReceived = now;
         const {positions} = player.parseMessage(data);
-        config.VERBOSE && console.log(`received: ${topic}`, clientId, data, latencyMs);
+        console.log(`received: ${topic}`, clientId, data);
 
         for (let posn of positions) {
           display.drawDot(posn, 'red');
@@ -136,6 +136,7 @@
         eventType: 'mousemove',
       });
       monitorMousemove.on("mousemove", ({data}) => {
+        console.log("broadcast mouse positions: ", data);
         player.broadcastPositions(data);
       });
 

@@ -143,7 +143,15 @@ class PlayerClient extends EventedMixin(Noop) {
   }
 
   parseMessage(messageData) {
-    let data = JSON.parse(messageData);
+    let data;
+    try {
+      data = JSON.parse(messageData);
+    } catch(ex) {
+      console.log("Failed to parse message: " + messageData);
+    }
+    if (!(data && data.positions)) {
+      return null;
+    }
     if (!Array.isArray(data.positions)) {
       data.positions = [data.positions];
     }

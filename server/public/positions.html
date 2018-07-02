@@ -91,13 +91,13 @@
 
       let lastSent, lastReceived;
       player.init();
-      player.on("received", ({topic, payloadString, clientId}) => {
+      player.on("received", ({topic, data, clientId}) => {
         if (!topic.endsWith("positions")) {
           return;
         }
         const now = Date.now();
         lastReceived = now;
-        let data = player.parseMessage(payloadString);
+        data = player.parseMessage(data);
         console.log(`received: ${topic}`, clientId, data);
         if (!(data && data.positions)) {
           // bail on bad data

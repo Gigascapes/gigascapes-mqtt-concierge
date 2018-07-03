@@ -41,6 +41,10 @@ var serverTime = {
     if (oldDate.getDate() !== oldDate.getDate()) {
       delete this._utcOffset;
     }
+  },
+  flush() {
+    this._date = new Date();
+    delete this._utcOffset;
   }
 };
 
@@ -100,6 +104,7 @@ function setupMQTT() {
   mqttClient = mqtt.connect(connectUrl);
 
   mqttClient.on('connect', function () {
+    serverTime.flush();
     status.update('connected');
 
     // listen for game updates
@@ -119,7 +124,6 @@ function setupMQTT() {
     // let the world know we are alive and listening
     sendMessage('status', status.get());
 
-    serverTime.touch();
     console.log(`signalling client (${config.CLIENT_ID}) connected to ${config.CLOUDMQTT_URL}`);
     console.log(`at time: ${serverTime.date.toLocaleString()}, with UTC offset ${serverTime.utcOffset}ms`);
   });

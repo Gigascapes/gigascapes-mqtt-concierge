@@ -3,7 +3,6 @@
 module.exports = function(model) {
   return {
     getClients(req, res) {
-      console.log("getClients", model);
       let result = model.getRecent();
       res.json(result);
     },

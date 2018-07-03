@@ -84,7 +84,7 @@ class PlayerClient extends EventedMixin(Noop) {
 
   onConnect() {
     let mqttClient = this.mqttClient;
-    mqttClient.subscribe(`${this.topicPrefix}/+/positions-ms`);
+    mqttClient.subscribe(`${this.topicPrefix}/+/positions-ts`);
 
     this.sendMessage(`${this.topicPrefix}/join`, `${this.clientId} is alive`);
 

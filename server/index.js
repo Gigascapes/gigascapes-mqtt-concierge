@@ -221,7 +221,8 @@ function setupHTTP() {
   var api = {
     status: require('./api/status')(status),
     clients: require('./api/clients')(recentClients),
-    config: require('./api/browser-config')(config)
+    config: require('./api/browser-config')(config),
+    serverTime: require('./api/serverTime')(serverTime)
   };
 
   app.use(bodyParser.urlencoded({
@@ -252,6 +253,7 @@ function setupHTTP() {
   app.get('/clients', api.clients.getClients);
   app.get('/clients/:id', api.clients.getClient);
   app.get('/mqtt-config.js', api.config.getConfigAsJs);
+  app.get('/time', api.serverTime.getTime);
   app.use(express.static(path.join(__dirname, './public')));
 
   app.listen(appConfig.port, function () {

@@ -64,7 +64,7 @@ class PlayerClient extends EventedMixin(Noop) {
                                           message.payloadString);
       let topic = message.destinationName;
       let [prefix, clientId] = topic.split('/');
-      if (clientId !== this.clientId && topic.endsWith("positions")) {
+      if (clientId !== this.clientId && topic.endsWith("positions-ts")) {
         this.emit("received", {
           topic: message.destinationName,
           data: message.payloadString,
@@ -84,7 +84,7 @@ class PlayerClient extends EventedMixin(Noop) {
 
   onConnect() {
     let mqttClient = this.mqttClient;
-    mqttClient.subscribe(`${this.topicPrefix}/+/positions`);
+    mqttClient.subscribe(`${this.topicPrefix}/+/positions-ms`);
 
     this.sendMessage(`${this.topicPrefix}/join`, `${this.clientId} is alive`);
 
@@ -125,7 +125,7 @@ class PlayerClient extends EventedMixin(Noop) {
     }
     if (typeof payload != "string") {
       // add a UTC timestamp to help track end-end latency
-      payload.utcTimestamp = Date.now() + UTC_OFFSET_MS;
+      payload.senderUTCTime = Date.now() + UTC_OFFSET_MS;
       payload = JSON.stringify(payload)
     }
     let message = new Paho.MQTT.Message(payload);
@@ -155,9 +155,10 @@ class PlayerClient extends EventedMixin(Noop) {
     if (!Array.isArray(data.positions)) {
       data.positions = [data.positions];
     }
-    if (data.utcTimestamp) {
-      let now = Date.now() + UTC_OFFSET_MS;
-      data.latencyMs = now - data.utcTimestamp;
+    let serverTime = data.serverUTCTime;
+    if (serverTime) {
+      let clientTime = Date.now() + UTC_OFFSET_MS;
+      data.latencyMs = clientTime - serverTime;
     }
     return data;
   }

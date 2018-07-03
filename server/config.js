@@ -4,4 +4,5 @@ module.exports = {
   CLIENT_ID: process.env.CLIENT_ID || "concierge",
   HTTP_PORT: process.env.PORT || 3000,
   CLOUDMQTT_WS_PASSWORD: process.env.CLOUDMQTT_WS_PASSWORD || 'nopassword',
+  CLOUDMQTT_CONCIERGE_PASSWORD: process.env.CLOUDMQTT_CONCIERGE_PASSWORD || 'nopassword',
 }

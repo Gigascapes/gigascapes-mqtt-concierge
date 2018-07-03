@@ -6,6 +6,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var path = require('path');
 var mqtt = require('mqtt');
+let Url = require('url');
 
 var mqttClient;
 var app;
@@ -75,7 +76,11 @@ var recentClients = {
 var RECENT_THRESHOLD_MS = 60000;
 
 function setupMQTT() {
-  mqttClient = mqtt.connect(config.CLOUDMQTT_URL);
+  let mqttUrl = Url.parse(config.CLOUDMQTT_URL);
+  mqttUrl.auth = `concierge:${config.CLOUDMQTT_CONCIERGE_PASSWORD}`;
+
+  let connectUrl = Url.format(mqttUrl);
+  mqttClient = mqtt.connect(connectUrl);
 
   mqttClient.on('connect', function () {
     status.update('connected');

@@ -17,14 +17,32 @@ const leaveTopic= topicPrefix + '/+/leave';
 const positionsTopic= topicPrefix + '/+/positions';
 const gameStateTopic= topicPrefix + '/+/gamestate';
 
-function getTimestamp(date) {
-  if (!date) {
-    date = new Date();
-  }
-  let utcOffset = date.getTimezoneOffset() * 1000 * 60;
-  return date.getTime() + utcOffset;
-}
+var serverTime = {
+  _date: new Date(),
 
+  get date() {
+    return this._date;
+  },
+  get utcOffset() {
+    if (this._utcOffset == undefined) {
+      this._utcOffset = this.date.getTimezoneOffset() * 60 * 1000;
+    }
+    return this._utcOffset;
+  },
+  get timestamp() {
+    return this._date.getTime() + this.utcOffset;
+  },
+  now() {
+    return this.timestamp;
+  },
+  touch() {
+    let oldDate = this._date;
+    this._date = new Date();
+    if (oldDate.getDate() !== oldDate.getDate()) {
+      delete this._utcOffset;
+    }
+  }
+};
 
 var status = {
   _data: {
@@ -32,10 +50,9 @@ var status = {
     timestamp: Date.now()
   },
   update(name, date) {
-    let timestamp = getTimestamp(date);
     this._data.name = name;
-    this._data.timestamp = timestamp;
-    console.log('status update: ' + name, timestamp);
+    this._data.timestamp = date || serverTime.timestamp;
+    console.log('status update: ' + name, serverTime.timestamp);
   },
   get() {
     return Object.assign({}, this._data);
@@ -52,7 +69,7 @@ var recentClients = {
     return null;
   },
   getRecent() {
-    let now = getTimestamp();
+    let now = serverTime.now();
     let arr = [];
     let recent = now - RECENT_THRESHOLD_MS;
     for(let [id, timestamp] of this._data.entries()) {
@@ -63,7 +80,7 @@ var recentClients = {
     return arr;
   },
   update(id, date) {
-    this._data.set(id, getTimestamp(date));
+    this._data.set(id, date || serverTime.timestamp);
   },
   remove(id) {
     if (this._data.has(id)) {
@@ -101,7 +118,10 @@ function setupMQTT() {
 
     // let the world know we are alive and listening
     sendMessage('status', status.get());
+
+    serverTime.touch();
     console.log(`signalling client (${config.CLIENT_ID}) connected to ${config.CLOUDMQTT_URL}`);
+    console.log(`at time: ${serverTime.date.toLocaleString()}, with UTC offset ${serverTime.utcOffset}ms`);
   });
 
   mqttClient.on('close', function () {
@@ -121,8 +141,8 @@ function setupMQTT() {
   });
 
   mqttClient.on('message', function (_topic, message) {
-    const nowDate = new Date();
-    status.update('receiving', nowDate);
+    serverTime.touch();
+    status.update('receiving', serverTime.timestamp);
 
     if (_topic.startsWith(config.CLIENT_ID)) {
       let [selfId, clientId, name] = _topic.split('/');
@@ -130,7 +150,7 @@ function setupMQTT() {
         case 'join':
           // every client could always publish on clientId-prefixed topics
           // and we could use wildcard: subscribe('/+/join', ....)
-          recentClients.update(clientId, nowDate);
+          recentClients.update(clientId, serverTime.timestamp);
           sendMessage('recent', recentClients.get());
           break;
         case 'leave':
@@ -151,25 +171,19 @@ function setupMQTT() {
     }
 
     let [prefix, clientId, name] = _topic.split('/').filter(part => !!part);
-    console.log("got message: ", prefix, clientId, name);
     switch (name) {
       case 'positions':
       case 'gamestate':
         // update tally of active/recent clients
         recentClients.update(clientId);
         // add a timestamp and re-publish
-        rePublishWithTimestamp(prefix, clientId, name, message, nowDate);
+        rePublishWithTimestamp(prefix, clientId, name, message);
         break;
     }
   });
 
-  function rePublishWithTimestamp(prefix, clientId, name, message, date) {
-    if (!date) {
-      date = new Date();
-    }
+  function rePublishWithTimestamp(prefix, clientId, name, message) {
     let messageData;
-    let utcOffset = date.getTimezoneOffset() * 1000 * 60;
-    let timestamp = getTimestamp(date);
     let receivedTopic = `${prefix}/${clientId}/${name}`;
     let publishTopic  = `${prefix}/${clientId}/${name}-ts`;
     try {
@@ -179,8 +193,8 @@ function setupMQTT() {
     }
     if (typeof messageData == 'object') {
       // add a UTC timestamp to help track end-end latency
-      messageData.serverUTCTime = timestamp;
-      messageData.serverUTCOffset = utcOffset;
+      messageData.serverUTCTime = serverTime.timestamp;
+      messageData.serverUTCOffset = serverTime.utcOffset;
       console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`, JSON.stringify(messageData));
       mqttClient.publish(publishTopic, JSON.stringify(messageData));
     }

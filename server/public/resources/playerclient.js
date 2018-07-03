@@ -3,8 +3,6 @@ if (typeof Paho == undefined) {
 }
 console.log("Paho:", Paho);
 
-const UTC_OFFSET_MS = (new Date()).getTimezoneOffset() * 1000 * 60;
-
 import EventedMixin from './eventedmixin.js';
 class Noop {};
 class PlayerClient extends EventedMixin(Noop) {
@@ -125,7 +123,7 @@ class PlayerClient extends EventedMixin(Noop) {
     }
     if (typeof payload != "string") {
       // add a UTC timestamp to help track end-end latency
-      payload.senderUTCTime = Date.now() + UTC_OFFSET_MS;
+      payload.senderUTCTime = Date.now();
       payload = JSON.stringify(payload)
     }
     let message = new Paho.MQTT.Message(payload);
@@ -157,7 +155,7 @@ class PlayerClient extends EventedMixin(Noop) {
     }
     let serverTime = data.serverUTCTime;
     if (serverTime) {
-      let clientTime = Date.now() + UTC_OFFSET_MS;
+      let clientTime = Date.now();
       data.latencyMs = clientTime - serverTime;
     }
     return data;

@@ -23,28 +23,16 @@ var serverTime = {
   get date() {
     return this._date;
   },
-  get utcOffset() {
-    if (this._utcOffset == undefined) {
-      this._utcOffset = this.date.getTimezoneOffset() * 60 * 1000;
-    }
-    return this._utcOffset;
-  },
   get timestamp() {
-    return this._date.getTime() + this.utcOffset;
+    return this._date.getTime();
   },
-  now() {
-    return this.timestamp;
+  get utcString() {
+    let d = this._date;
+    return d.getUTCHours() + ":" + d.getUTCMinutes() + ":" + d.getUTCSeconds() +
+           "." + d.getUTCMilliseconds() + " GMT";
   },
   touch() {
-    let oldDate = this._date;
     this._date = new Date();
-    if (oldDate.getDate() !== oldDate.getDate()) {
-      delete this._utcOffset;
-    }
-  },
-  flush() {
-    this._date = new Date();
-    delete this._utcOffset;
   }
 };
 
@@ -53,9 +41,9 @@ var status = {
     name: 'disconnected',
     timestamp: Date.now()
   },
-  update(name, date) {
+  update(name) {
     this._data.name = name;
-    this._data.timestamp = date || serverTime.timestamp;
+    this._data.timestamp = serverTime.timestamp;
     console.log('status update: ' + name, serverTime.timestamp);
   },
   get() {
@@ -73,7 +61,7 @@ var recentClients = {
     return null;
   },
   getRecent() {
-    let now = serverTime.now();
+    let now = serverTime.timestamp;
     let arr = [];
     let recent = now - RECENT_THRESHOLD_MS;
     for(let [id, timestamp] of this._data.entries()) {
@@ -104,7 +92,7 @@ function setupMQTT() {
   mqttClient = mqtt.connect(connectUrl);
 
   mqttClient.on('connect', function () {
-    serverTime.flush();
+    serverTime.touch();
     status.update('connected');
 
     // listen for game updates
@@ -125,7 +113,7 @@ function setupMQTT() {
     sendMessage('status', status.get());
 
     console.log(`signalling client (${config.CLIENT_ID}) connected to ${config.CLOUDMQTT_URL}`);
-    console.log(`at time: ${serverTime.date.toLocaleString()}, with UTC offset ${serverTime.utcOffset}ms`);
+    console.log(`at time: ${serverTime.utcString}`);
   });
 
   mqttClient.on('close', function () {
@@ -146,7 +134,7 @@ function setupMQTT() {
 
   mqttClient.on('message', function (_topic, message) {
     serverTime.touch();
-    status.update('receiving', serverTime.timestamp);
+    status.update('receiving');
 
     if (_topic.startsWith(config.CLIENT_ID)) {
       let [selfId, clientId, name] = _topic.split('/');
@@ -198,7 +186,6 @@ function setupMQTT() {
     if (typeof messageData == 'object') {
       // add a UTC timestamp to help track end-end latency
       messageData.serverUTCTime = serverTime.timestamp;
-      messageData.serverUTCOffset = serverTime.utcOffset;
       console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`, JSON.stringify(messageData));
       mqttClient.publish(publishTopic, JSON.stringify(messageData));
     }
@@ -224,6 +211,11 @@ function setupHTTP() {
     config: require('./api/browser-config')(config),
     serverTime: require('./api/serverTime')(serverTime)
   };
+
+  app.use(function (req, res, next) {
+    serverTime.touch();
+    next();
+  });
 
   app.use(bodyParser.urlencoded({
     extended: true

@@ -22,11 +22,10 @@ module.exports = function(model) {
   ];
   return {
     getTime(req, res) {
-      model.flush();
       let date = model.date;
       let result = {
         timestamp: model.timestamp,
-        utcOffset: model.utcOffset
+        utcString: model.utcString
       };
       for (let name of dateProps) {
         result[name] = date[name]();

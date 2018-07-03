@@ -1,26 +1,44 @@
 // "indent": ["error", 2, { "SwitchCase": 1 }],
+'use strict';
+
 var config = require('./config');
 var express = require('express');
 var bodyParser = require('body-parser');
 var path = require('path');
-
 var mqtt = require('mqtt');
+
 var mqttClient;
 var app;
-const topicPrefix = '/gs/';
+const topicPrefix = 'gigascapes';
+
+const joinTopic= topicPrefix + '/+/join';
+const leaveTopic= topicPrefix + '/+/leave';
+const positionsTopic= topicPrefix + '/+/positions';
+const gameStateTopic= topicPrefix + '/+/gamestate';
+
+function getTimestamp(date) {
+  if (!date) {
+    date = new Date();
+  }
+  let utcOffset = date.getTimezoneOffset() * 1000 * 60;
+  return date.getTime() + utcOffset;
+}
+
 
 var status = {
   _data: {
     name: 'disconnected',
     timestamp: Date.now()
   },
-  update(name) {
+  update(name, date) {
+    let timestamp = getTimestamp(date);
     this._data.name = name;
-    this._data.timestamp = Date.now();
+    this._data.timestamp = timestamp;
+    console.log('status update: ' + name, timestamp);
   },
   get() {
     return Object.assign({}, this._data);
-  },
+  }
 };
 
 var recentClients = {
@@ -33,7 +51,7 @@ var recentClients = {
     return null;
   },
   getRecent() {
-    let now = Date.now();
+    let now = getTimestamp();
     let arr = [];
     let recent = now - RECENT_THRESHOLD_MS;
     for(let [id, timestamp] of this._data.entries()) {
@@ -43,8 +61,8 @@ var recentClients = {
     }
     return arr;
   },
-  update(id) {
-    this._data.set(id, Date.now());
+  update(id, date) {
+    this._data.set(id, getTimestamp(date));
   },
   remove(id) {
     if (this._data.has(id)) {
@@ -56,15 +74,20 @@ var recentClients = {
 // consider all clients publishing in the last 1 minute as recent
 var RECENT_THRESHOLD_MS = 60000;
 
-
 function setupMQTT() {
   mqttClient = mqtt.connect(config.CLOUDMQTT_URL);
 
   mqttClient.on('connect', function () {
     status.update('connected');
+
+    // listen for game updates
+    mqttClient.subscribe(positionsTopic);
+    mqttClient.subscribe(gameStateTopic);
+
     // listen for other clients that want to join
     // TODO: define what join means vs. just connecting?
-    mqttClient.subscribe(`${topicPrefix}/join`);
+    mqttClient.subscribe(`${config.CLIENT_ID}/+/join`);
+    mqttClient.subscribe(`${config.CLIENT_ID}/+/leave`);
 
     // this isn't a request/response model, but another client may "nudge" us
     // by publishing on the /concierge/nudge/ topic, causing us to
@@ -94,46 +117,70 @@ function setupMQTT() {
 
   mqttClient.on('message', function (_topic, message) {
     status.update('receiving');
-    let [prefix, ...parts] = _topic.split('/').filter(part => !!part);
-    if (prefix.startsWith('/')) {
-      // strip off a leading '/'
-      prefix = prefix.substring(1);
-    }
-    let topic = parts.join('/');
-    // message is Buffer
-    console.log(`got a message at prefix ${prefix}, on topic: ${topic}`,
-                message.toString());
+    const nowDate = new Date();
 
-    if (prefix == '$SYS') {
-      // system messages from the broker
-      console.log(`System message: ${topic}: ${message.toString()}`);
-      return;
-    }
-    if (prefix == config.CLIENT_ID || prefix == topicPrefix.substring(1)) {
-      switch (topic) {
-        case `nudge`:
-          sendMessage('status', status.get());
+    if (_topic.startsWith(config.CLIENT_ID)) {
+      let [selfId, clientId, name] = _topic.split('/');
+      switch (name) {
+        case 'join':
+          // every client could always publish on clientId-prefixed topics
+          // and we could use wildcard: subscribe('/+/join', ....)
+          recentClients.update(clientId, nowDate);
           sendMessage('recent', recentClients.get());
           break;
-      case 'join':
-        // every client could always publish on clientId-prefixed topics
-        // and we could use wildcard: subscribe('/+/join', ....)
-        recentClients.update(clientId);
-        sendMessage('recent', recentClients.get());
-        break;
-      case 'leave':
-        recentClients.remove(clientId);
-        sendMessage('recent', recentClients.get());
-        break;
-
+        case 'leave':
+          recentClients.remove(clientId);
+          sendMessage('recent', recentClients.get());
+          break;
+        case 'nudge':
+          sendMessage('status', status.get());
+          sendMessage('recent', recentClients.get());
       }
       return;
     }
 
+    if (_topic.startsWith('$SYS')) {
+      // system messages from the broker
+      console.log(`System message: ${_topic}: ${message.toString()}`);
+      return;
+    }
+
+    let [prefix, clientId, name] = _topic.split('/').filter(part => !!part);
+
+    switch (name) {
+      case 'positions':
+      case 'gamestate':
+        // update tally of active/recent clients
+        recentClients.update(clientId);
+        // add a timestamp and re-publish
+        rePublishWithTimestamp(prefix, clientId, name, message, nowDate);
+        break;
+    }
   });
 
+  function rePublishWithTimestamp(prefix, clientId, name, message, date) {
+    if (!date) {
+      date = new Date();
+    }
+    let messageData;
+    let utcOffset = date.getTimezoneOffset() * 1000 * 60;
+    let timestamp = getTimestamp(date);
+    let receivedTopic = `${prefix}/${clientId}/${name}`;
+    let publishTopic  = `${prefix}/${clientId}/${name}-ts`;
+    try {
+      messageData = JSON.parse(message.toString());
+    } catch (ex) {
+      console.log('Failed to parse message on topic ' + receivedTopic, message.toString());
+    }
+    if (typeof messageData == 'object') {
+      // add a UTC timestamp to help track end-end latency
+      messageData.serverUTCTime = timestamp;
+      messageData.serverUTCOffset = utcOffset;
+      mqttClient.publish(publishTopic, JSON.stringify(messageData));
+    }
+  }
   function sendMessage(name, messageData) {
-    let topic = `/${topicPrefix}/${name}`;
+    let topic = `${topicPrefix}/${config.CLIENT_ID}/${name}`;
     let message = JSON.stringify(messageData);
     mqttClient.publish(topic, message);
   }
@@ -150,7 +197,7 @@ function setupHTTP() {
   var api = {
     status: require('./api/status')(status),
     clients: require('./api/clients')(recentClients),
-    config: require('./api/browser-config')(config),
+    config: require('./api/browser-config')(config)
   };
 
   app.use(bodyParser.urlencoded({
@@ -163,13 +210,16 @@ function setupHTTP() {
       CLOUDMQTT_URL: config.CLOUDMQTT_URL,
       CLIENT_ID: config.CLIENT_ID,
       routes: [
-        "/status",
-        "/clients/",
-        "/clients/:id",
+        '/status',
+        '/clients/',
+        '/clients/:id'
       ],
       topics: [
-        '/+/join',
-        `/${config.CLIENT_ID}/nudge`,
+        joinTopic,
+        leaveTopic,
+        positionsTopic,
+        gameStateTopic,
+        `/${config.CLIENT_ID}/nudge`
       ]
     };
     res.send(result);

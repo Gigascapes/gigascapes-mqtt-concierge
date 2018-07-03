@@ -121,8 +121,8 @@ function setupMQTT() {
   });
 
   mqttClient.on('message', function (_topic, message) {
-    status.update('receiving');
     const nowDate = new Date();
+    status.update('receiving', nowDate);
 
     if (_topic.startsWith(config.CLIENT_ID)) {
       let [selfId, clientId, name] = _topic.split('/');
@@ -151,7 +151,7 @@ function setupMQTT() {
     }
 
     let [prefix, clientId, name] = _topic.split('/').filter(part => !!part);
-
+    console.log("got message: ", prefix, clientId, name);
     switch (name) {
       case 'positions':
       case 'gamestate':
@@ -181,6 +181,7 @@ function setupMQTT() {
       // add a UTC timestamp to help track end-end latency
       messageData.serverUTCTime = timestamp;
       messageData.serverUTCOffset = utcOffset;
+      console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`, JSON.stringify(messageData));
       mqttClient.publish(publishTopic, JSON.stringify(messageData));
     }
   }

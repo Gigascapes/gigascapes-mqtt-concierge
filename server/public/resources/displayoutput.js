@@ -62,10 +62,15 @@ class DisplayOutput {
     if (!Array.isArray(color)) {
       color = this._convertColorString(color);
     }
-    // de-normalize coordst count = this
+    // de-normalize coords
+  // scale coordinates to range from -11 to 11
+    // coords.x = -11 + x * 22;
+    // coords.y = -11 + y * 22;
+    let x = ((11 + coord.x) / 22) * this.canvas.width;
+    let y = ((11 + coord.y) / 22) * this.canvas.height;
     let posn = {
-      x: coord.x * this.canvas.width,
-      y: coord.y * this.canvas.height,
+      x,
+      y,
       color,
       created: now
     };

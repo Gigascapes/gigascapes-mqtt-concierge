@@ -50,8 +50,9 @@ function normalizeEventCoords(evt, rect, coords={}) {
   let {width, height, top, left} = rect;
   let x = clamp(evt.pageX - left, 0, width) / width;
   let y = clamp(evt.pageY - top, 0, height) / height;
-  coords.x = x;
-  coords.y = y;
+  // scale coordinates to range from -11 to 11
+  coords.x = -11 + x * 22;
+  coords.y = -11 + y * 22;
   return coords;
 }
 

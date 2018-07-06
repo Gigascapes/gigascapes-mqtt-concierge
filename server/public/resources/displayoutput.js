@@ -1,17 +1,17 @@
-import cssColors from './cssColors.js';
+import cssColors from "./cssColors.js";
 
 class DisplayOutput {
   constructor(options={}) {
     this.positions = null;
     this.options = Object.assign({
-      decayMS: 2000,
+      decayMS: 2000
     }, options);
     console.assert(this.options.node, "DisplayOutput needs an options.node for output");
   }
   start() {
     this.running = true;
     this.canvas = this.options.node;
-    this.ctx = this.canvas.getContext('2d');
+    this.ctx = this.canvas.getContext("2d");
     this.positions = [];
     this.tick();
   }
@@ -31,13 +31,13 @@ class DisplayOutput {
         g = parseInt(color.substring(2, 4), 16);
         b = parseInt(color.substring(4, 6), 16);
       }
-    } else if (color.startsWith('rgb(')) {
-      color = color.substring('rgb('.length, color.length -1);
+    } else if (color.startsWith("rgb(")) {
+      color = color.substring("rgb(".length, color.length -1);
       [r,g,b] = color.split(",");
     } else if (color in cssColors) {
       [r,g,b] = cssColors[color];
     }
-    // console.log(`_convertColorString from: ${color} to ${[r,g,b].join(':')}`);
+    // console.log(`_convertColorString from: ${color} to ${[r,g,b].join(":")}`);
     return [r,g,b, 1];
   }
   _drawDot(posn) {
@@ -46,7 +46,7 @@ class DisplayOutput {
     ctx.arc(posn.x, posn.y, 10, 0, 2 * Math.PI, false);
 
     posn.color[3] = posn.opacity;
-    ctx.fillStyle = `rgba(${posn.color.join(', ')})`;
+    ctx.fillStyle = `rgba(${posn.color.join(", ")})`;
     ctx.fill();
   }
   drawDot(coord, color = [0,0,0]) {
@@ -67,8 +67,8 @@ class DisplayOutput {
       x: coord.x * this.canvas.width,
       y: coord.y * this.canvas.height,
       color,
-      created: now,
-    }
+      created: now
+    };
     this.positions.push(posn);
     this._nextDotTimer = setTimeout(() => {
       this.pause();

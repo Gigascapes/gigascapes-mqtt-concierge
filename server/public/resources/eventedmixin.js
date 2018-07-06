@@ -53,5 +53,5 @@ export default function EventedMixin(superClass) {
         listeners[i](payload);
       }
     }
-  }
-};
+  };
+}

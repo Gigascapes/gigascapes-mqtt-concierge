@@ -28,8 +28,8 @@ var serverTime = {
   },
   get utcString() {
     let d = this._date;
-    return d.getUTCHours() + ":" + d.getUTCMinutes() + ":" + d.getUTCSeconds() +
-           "." + d.getUTCMilliseconds() + " GMT";
+    return d.getUTCHours() + ':' + d.getUTCMinutes() + ':' + d.getUTCSeconds() +
+           '.' + d.getUTCMilliseconds() + ' GMT';
   },
   touch() {
     this._date = new Date();
@@ -104,7 +104,7 @@ function setupMQTT() {
     mqttClient.subscribe(`${config.CLIENT_ID}/+/join`);
     mqttClient.subscribe(`${config.CLIENT_ID}/+/leave`);
 
-    // this isn't a request/response model, but another client may "nudge" us
+    // this isn't a request/response model, but another client may 'nudge' us
     // by publishing on the /concierge/nudge/ topic, causing us to
     // publish current status
     mqttClient.subscribe(`${config.CLIENT_ID}/nudge`);
@@ -175,19 +175,21 @@ function setupMQTT() {
   });
 
   function rePublishWithTimestamp(prefix, clientId, name, message) {
-    let messageData;
+    let entries;
     let receivedTopic = `${prefix}/${clientId}/${name}`;
     let publishTopic  = `${prefix}/${clientId}/${name}-ts`;
     try {
-      messageData = JSON.parse(message.toString());
+      entries = JSON.parse(message.toString());
     } catch (ex) {
       console.log('Failed to parse message on topic ' + receivedTopic, message.toString());
     }
-    if (typeof messageData == 'object') {
-      // add a UTC timestamp to help track end-end latency
-      messageData.serverUTCTime = serverTime.timestamp;
-      console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`, JSON.stringify(messageData));
-      mqttClient.publish(publishTopic, JSON.stringify(messageData));
+    if (Array.isArray(entries)) {
+      for (let entry of entries) {
+        // add a UTC timestamp to help track end-end latency
+        entry.serverUTCTime = serverTime.timestamp;
+      }
+      console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`, JSON.stringify(entries));
+      mqttClient.publish(publishTopic, JSON.stringify(entries));
     }
   }
   function sendMessage(name, messageData) {

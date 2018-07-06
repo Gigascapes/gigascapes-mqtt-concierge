@@ -81,6 +81,27 @@
       import {TouchInput, MouseInput} from './resources/inputs.js';
       import EventedMixin from './resources/eventedmixin.js';
 
+      var qs = (function(cfg){
+        // pull config from querystring
+        var expectedKeys = ["showLatency"];
+
+        var queryStr = location.search.substring(1);
+        var pairs, nameValue, params = {};
+        if(queryStr){
+          pairs = queryStr.split('&');
+          for(var i=0; i<pairs.length; i++) {
+            nameValue = pairs[i].split('=');
+            if(nameValue[0] && (expectedKeys.includes(nameValue[0]))) {
+              cfg[ nameValue[0] ] = nameValue[1];
+            }
+          }
+          if(i >= pairs.length && location.hash) {
+              cfg[ nameValue[0] ] += location.hash;
+          }
+        }
+        return cfg;
+      })({});
+
       class Player extends EventedMixin(PlayerClient) {};
 
       const player = window.player = new Player(Object.assign({}, config));
@@ -89,7 +110,7 @@
         node: document.querySelector('canvas'),
       });
 
-      let lastSent, lastReceived;
+      let lastSent, lastReceived, latencyMs;
       player.init();
       player.on("received", ({topic, data, clientId}) => {
         if (!topic.endsWith("positions-ts")) {
@@ -97,16 +118,24 @@
         }
         const now = Date.now();
         lastReceived = now;
-        data = player.parseMessage(data);
-        console.log(`received: ${topic}`, clientId, data);
-        if (!(data && data.positions)) {
+        latencyMs = 0;
+        let positions = player.parseMessage(data);
+        console.log(`received: ${topic}`, clientId, positions);
+        if (!(positions && Array.isArray(positions))) {
           // bail on bad data
           return;
         }
-        for (let posn of data.positions) {
+        for (let posn of positions) {
           display.drawDot(posn, 'red');
+          if (posn.latencyMs) {
+            latencyMs = Math.max(latencyMs, posn.latencyMs);
+          }
         }
-        document.querySelector("#remoteInfo").textContent = data.positions.length;
+        if (qs.showLatency) {
+          let elm = document.querySelector("#latency");
+          elm.textContent = latencyMs;
+        }
+        document.querySelector("#remoteInfo").textContent = positions.length;
         setTimeout(() => {
           if (Date.now() - lastSent >= 1500) {
             document.querySelector("#remoteInfo").textContent = 0;
@@ -118,9 +147,9 @@
           return;
         }
         lastSent = Date.now();
-        config.VERBOSE && console.log(`sent: ${topic}`, data);
+        console.log(`sent: ${topic}`, data);
 
-        const {positions} = player.parseMessage(data);
+        const positions = player.parseMessage(data);
         for (let posn of positions) {
           display.drawDot(posn, 'green');
         }
@@ -152,6 +181,9 @@
 
       requestAnimationFrame(() => {
         document.querySelector("h1").textContent += ": " + config.connectOptions.clientId;
+        if (qs.showLatency) {
+          document.querySelector("#latency").style.display = "block";
+        }
       });
     </script>
 

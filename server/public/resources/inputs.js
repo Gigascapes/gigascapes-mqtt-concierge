@@ -1,4 +1,4 @@
-import EventedMixin from './eventedmixin.js';
+import EventedMixin from "./eventedmixin.js";
 export { GenericInput, TouchInput, MouseInput };
 
 class GenericInput {
@@ -40,7 +40,7 @@ class GenericInput {
   updateSize() {
     this.nodeOffsets = this.options.node.getBoundingClientRect();
   }
-};
+}
 
 function clamp(val, lbound, ubound) {
   return Math.min(Math.max(val, lbound), ubound);
@@ -88,7 +88,7 @@ class TouchInput extends EventedMixin(GenericInput) {
         let touches = Array.from(event.changedTouches).map(touch => {
           let point = {
             id: touch.identifier
-          }
+          };
           this.preparePointFromEvent(touch, point);
           return point;
         });
@@ -115,13 +115,13 @@ class TouchInput extends EventedMixin(GenericInput) {
           }
         }
         let evt = {
-          data: this._touches.slice(),
+          data: this._touches.slice()
         };
         this.emit("touchmove", evt);
         break;
     }
   }
-};
+}
 
 class MouseInput extends EventedMixin(GenericInput) {
   constructor(options = {}) {
@@ -164,4 +164,4 @@ class MouseInput extends EventedMixin(GenericInput) {
         break;
     }
   }
-};
+}

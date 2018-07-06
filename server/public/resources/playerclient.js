@@ -1,10 +1,12 @@
+/* global Paho */
+
 if (typeof Paho == undefined) {
   throw new Error("playerclient.js: Paho client not loaded and available in this scope");
 }
 console.log("Paho:", Paho);
 
-import EventedMixin from './eventedmixin.js';
-class Noop {};
+import EventedMixin from "./eventedmixin.js";
+class Noop {}
 class PlayerClient extends EventedMixin(Noop) {
   constructor(options={}) {
     super();
@@ -61,7 +63,7 @@ class PlayerClient extends EventedMixin(Noop) {
                                           message.destinationName,
                                           message.payloadString);
       let topic = message.destinationName;
-      let [prefix, clientId] = topic.split('/');
+      let [prefix, clientId] = topic.split("/");
       if (clientId !== this.clientId && topic.endsWith("positions-ts")) {
         this.emit("received", {
           topic: message.destinationName,
@@ -97,7 +99,7 @@ class PlayerClient extends EventedMixin(Noop) {
   }
 
   onDisconnect(reason) {
-    console.log('player mqtt client disconnected', reason);
+    console.log("player mqtt client disconnected", reason);
     this.pairId = null;
     this.mqttClient = null;
     clearInterval(this._messageTimer);
@@ -122,8 +124,11 @@ class PlayerClient extends EventedMixin(Noop) {
       topic = `${topic.prefix}/${this.clientId}/${topic.name}`;
     }
     if (typeof payload != "string") {
-      // add a UTC timestamp to help track end-end latency
-      payload.senderUTCTime = Date.now();
+      let senderUTCTime = Date.now();
+      for (let posn of payload) {
+        // add a UTC timestamp to help track end-end latency
+        posn.senderUTCTime = senderUTCTime;
+      }
       payload = JSON.stringify(payload)
     }
     let message = new Paho.MQTT.Message(payload);
@@ -141,31 +146,27 @@ class PlayerClient extends EventedMixin(Noop) {
   }
 
   parseMessage(messageData) {
-    let data;
+    let positions;
     try {
-      data = JSON.parse(messageData);
+      positions = JSON.parse(messageData);
     } catch(ex) {
       console.log("Failed to parse message: " + messageData);
     }
-    if (!(data && data.positions)) {
+    if (!(positions && Array.isArray(positions))) {
       return null;
     }
-    if (!Array.isArray(data.positions)) {
-      data.positions = [data.positions];
+    let clientTime = Date.now();
+    for (let posn of positions) {
+      if (posn.serverUTCTime) {
+        posn.latencyMs = Math.max(0, clientTime - posn.serverUTCTime);
+      }
     }
-    let serverTime = data.serverUTCTime;
-    if (serverTime) {
-      let clientTime = Date.now();
-      data.latencyMs = clientTime - serverTime;
-    }
-    return data;
+    return positions;
   }
 
   broadcastPositions(positions) {
     let topic = `${this.topicPrefix}/${this.clientId}/positions`;
-    this.enqueueMessage(topic, {
-      positions
-    });
+    this.enqueueMessage(topic, positions);
   }
 };
 

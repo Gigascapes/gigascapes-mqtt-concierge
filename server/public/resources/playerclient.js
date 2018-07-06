@@ -20,7 +20,7 @@ class PlayerClient extends EventedMixin(Noop) {
       onFailure: resp => {
         console.warn(`failed to connect: ${resp.errorCode} - ${resp.errorMessage}`);
         console.log(resp);
-      },
+      }
     }, options.connectOptions);
     this.options = Object.assign({}, options);
     this.topicPrefix = "gigascapes";
@@ -123,13 +123,13 @@ class PlayerClient extends EventedMixin(Noop) {
     if (typeof topic == "object") {
       topic = `${topic.prefix}/${this.clientId}/${topic.name}`;
     }
-    if (typeof payload != "string") {
+    if (typeof payload != "string" && Array.isArray(payload.positions)) {
       let senderUTCTime = Date.now();
-      for (let posn of payload) {
+      for (let posn of payload.positions) {
         // add a UTC timestamp to help track end-end latency
         posn.senderUTCTime = senderUTCTime;
       }
-      payload = JSON.stringify(payload)
+      payload = JSON.stringify(payload);
     }
     let message = new Paho.MQTT.Message(payload);
     message.destinationName = topic;
@@ -146,28 +146,31 @@ class PlayerClient extends EventedMixin(Noop) {
   }
 
   parseMessage(messageData) {
-    let positions;
+    let data;
     try {
-      positions = JSON.parse(messageData);
+      data = JSON.parse(messageData);
     } catch(ex) {
       console.log("Failed to parse message: " + messageData);
     }
-    if (!(positions && Array.isArray(positions))) {
+    if (!(data && Array.isArray(data.positions))) {
       return null;
     }
     let clientTime = Date.now();
-    for (let posn of positions) {
+    for (let posn of data.positions) {
       if (posn.serverUTCTime) {
         posn.latencyMs = Math.max(0, clientTime - posn.serverUTCTime);
       }
     }
-    return positions;
+    return data;
   }
 
   broadcastPositions(positions) {
     let topic = `${this.topicPrefix}/${this.clientId}/positions`;
-    this.enqueueMessage(topic, positions);
+    this.enqueueMessage(topic, {
+      positions,
+      clientId: this.clientId
+    });
   }
-};
+}
 
 export {PlayerClient as default};

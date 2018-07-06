@@ -175,21 +175,22 @@ function setupMQTT() {
   });
 
   function rePublishWithTimestamp(prefix, clientId, name, message) {
-    let entries;
+    let messageData;
     let receivedTopic = `${prefix}/${clientId}/${name}`;
     let publishTopic  = `${prefix}/${clientId}/${name}-ts`;
     try {
-      entries = JSON.parse(message.toString());
+      messageData = JSON.parse(message.toString());
     } catch (ex) {
       console.log('Failed to parse message on topic ' + receivedTopic, message.toString());
     }
-    if (Array.isArray(entries)) {
-      for (let entry of entries) {
+    if (messageData && Array.isArray(messageData.positions)) {
+      for (let entry of messageData.positions) {
         // add a UTC timestamp to help track end-end latency
         entry.serverUTCTime = serverTime.timestamp;
       }
-      console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`, JSON.stringify(entries));
-      mqttClient.publish(publishTopic, JSON.stringify(entries));
+      console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`,
+                  JSON.stringify(messageData));
+      mqttClient.publish(publishTopic, JSON.stringify(messageData));
     }
   }
   function sendMessage(name, messageData) {

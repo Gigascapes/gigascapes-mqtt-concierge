@@ -119,7 +119,7 @@
         const now = Date.now();
         lastReceived = now;
         latencyMs = 0;
-        let positions = player.parseMessage(data);
+        let {positions} = player.parseMessage(data);
         console.log(`received: ${topic}`, clientId, positions);
         if (!(positions && Array.isArray(positions))) {
           // bail on bad data
@@ -149,7 +149,7 @@
         lastSent = Date.now();
         console.log(`sent: ${topic}`, data);
 
-        const positions = player.parseMessage(data);
+        const {positions} = player.parseMessage(data);
         for (let posn of positions) {
           display.drawDot(posn, 'green');
         }

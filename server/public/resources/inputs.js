@@ -53,6 +53,8 @@ function normalizeEventCoords(evt, rect, coords={}) {
   // scale coordinates to range from -11 to 11
   coords.x = -11 + x * 22;
   coords.y = -11 + y * 22;
+  // flip the y axis for unity compat.
+  coords.y *= -1;
   return coords;
 }
 

@@ -63,11 +63,9 @@ class DisplayOutput {
       color = this._convertColorString(color);
     }
     // de-normalize coords
-  // scale coordinates to range from -11 to 11
-    // coords.x = -11 + x * 22;
-    // coords.y = -11 + y * 22;
+  // scale coordinates to range from -11 to 11 and flip y axis for rendering
     let x = ((11 + coord.x) / 22) * this.canvas.width;
-    let y = ((11 + coord.y) / 22) * this.canvas.height;
+    let y = ((11 + coord.y * -1) / 22) * this.canvas.height;
     let posn = {
       x,
       y,

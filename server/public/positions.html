@@ -106,7 +106,7 @@
 
       const player = window.player = new Player(Object.assign({}, config));
 
-      const display = new DisplayOutput({
+      const display = window.gDisplay = new DisplayOutput({
         node: document.querySelector('canvas'),
       });
 

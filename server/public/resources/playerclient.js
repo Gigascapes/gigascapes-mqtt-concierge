@@ -11,6 +11,7 @@ class PlayerClient extends EventedMixin(Noop) {
   constructor(options={}) {
     super();
     this.pairId = null;
+    this.nextMessageId = 0;
     this.connectOptions = Object.assign({
       cleanSession: true,
       onSuccess: resp => {
@@ -166,6 +167,9 @@ class PlayerClient extends EventedMixin(Noop) {
 
   broadcastPositions(positions) {
     let topic = `${this.topicPrefix}/${this.clientId}/positions`;
+    for (let posn of positions) {
+      posn.id = this.nextMessageId++;
+    }
     this.enqueueMessage(topic, {
       positions,
       clientId: this.clientId

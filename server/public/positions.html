@@ -175,8 +175,11 @@
         eventType: 'touchmove',
       });
       monitorTouchmove.on("touchmove", ({data}) => {
-        console.log("broadcast touch positions: ", data);
-        player.broadcastPositions(data);
+        let positions = data.map(touch => {
+          return { x: touch.x, y: touch.y };
+        });
+        console.log("broadcast touch positions: ", positions);
+        player.broadcastPositions(positions);
       });
 
       requestAnimationFrame(() => {

@@ -183,10 +183,15 @@ function setupMQTT() {
     } catch (ex) {
       console.log('Failed to parse message on topic ' + receivedTopic, message.toString());
     }
-    if (messageData && Array.isArray(messageData.positions)) {
-      for (let entry of messageData.positions) {
-        // add a UTC timestamp to help track end-end latency
-        entry.serverUTCTime = serverTime.timestamp;
+    if (typeof messageData == 'object') {
+      for (let [name, values] of Object.entries(messageData)) {
+        if (!Array.isArray(values)) {
+          continue;
+        }
+        for (let entry of values) {
+          // add a UTC timestamp to help track end-end latency
+          entry.serverUTCTime = serverTime.timestamp;
+        }
       }
       console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`,
                   JSON.stringify(messageData));

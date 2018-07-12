@@ -17,6 +17,10 @@ const leaveTopic= topicPrefix + '/+/leave';
 const positionsTopic= topicPrefix + '/+/positions';
 const gameStateTopic= topicPrefix + '/+/gamestate';
 
+function clamp(num, lbound, ubound) {
+  return Math.min(ubound, Math.max(num, lbound));
+}
+
 var serverTime = {
   _date: new Date(),
 
@@ -178,12 +182,21 @@ function setupMQTT() {
     let messageData;
     let receivedTopic = `${prefix}/${clientId}/${name}`;
     let publishTopic  = `${prefix}/${clientId}/${name}-ts`;
+    let sendOptions = {
+      qos: 0 // default to QOS_LEVEL_AT_MOST_ONCE
+    };
     try {
       messageData = JSON.parse(message.toString());
     } catch (ex) {
       console.log('Failed to parse message on topic ' + receivedTopic, message.toString());
     }
     if (typeof messageData == 'object') {
+      if (messageData.hasOwnProperty('qos')) {
+        // look in the message for a 'qos' property and relay with the same qos
+        let qos = isNaN(messageData.qos) ? 0 : clamp(messageData.qos, 0, 2);
+        sendOptions.qos = qos;
+      }
+
       for (let [name, values] of Object.entries(messageData)) {
         if (!Array.isArray(values)) {
           continue;
@@ -191,11 +204,15 @@ function setupMQTT() {
         for (let entry of values) {
           // add a UTC timestamp to help track end-end latency
           entry.serverUTCTime = serverTime.timestamp;
+          if (entry.messageType && entry.messageType == 'join') {
+            // special-case 'join': we want more assurance that messages containing joins will be delivered
+            sendOptions.qos = 2;
+          }
         }
       }
       console.log(`rePublishWithTimestamp, received: ${receivedTopic}, publishTopic: ${publishTopic}`,
                   JSON.stringify(messageData));
-      mqttClient.publish(publishTopic, JSON.stringify(messageData));
+      mqttClient.publish(publishTopic, JSON.stringify(messageData), sendOptions);
     }
   }
   function sendMessage(name, messageData) {
